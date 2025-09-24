@@ -4,20 +4,11 @@ const cheerio = require('cheerio');
 
 const app = express();
 
-
 app.get('/api/cambio', async (req, res) => {
   try {
-    let { dia, mes, anio } = req.query;
+    const { fecha_inicial = '2018-01-01', fecha_final = new Date().toISOString().slice(0,10) } = req.query;
 
-    const fecha = new Date();
-
-    dia = Number.isInteger(+dia) && +dia > 0 ? +dia : fecha.getDate();
-    mes = Number.isInteger(+mes) && +mes > 0 ? +mes : fecha.getMonth() + 1;
-    anio = Number.isInteger(+anio) && +anio > 0 ? +anio : fecha.getFullYear();
-
-    const mesStr = mes.toString().padStart(2, '0');
-    const url = `https://www.bcn.gob.ni/IRR/tipo_cambio_mensual/mes.php?mes=${mesStr}&anio=${anio}`;
-
+    const url = `https://www.bcn.gob.ni/IRR/tipo_cambio_mensual/mes.php?Fecha_inicial=${fecha_inicial}&Fecha_final=${fecha_final}`;
     console.log(`Consultando URL: ${url}`);
 
     const { data } = await axios.get(url, {
@@ -26,7 +17,6 @@ app.get('/api/cambio', async (req, res) => {
                       'AppleWebKit/537.36 (KHTML, like Gecko) ' +
                       'Chrome/114.0.0.0 Safari/537.36',
         'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-        'Referer': 'https://www.bcn.gob.ni/IRR/tipo_cambio_mensual/index.php',
       }
     });
 
@@ -41,30 +31,17 @@ app.get('/api/cambio', async (req, res) => {
     const filas = tabla.find('tr');
     const filasDatos = filas.filter((i, el) => $(el).find('td').length > 0);
 
-    if (dia > filasDatos.length) {
-      console.error(`Día fuera de rango: ${dia} > ${filasDatos.length}`);
-      return res.status(400).json({ error: `Día fuera de rango. La tabla tiene ${filasDatos.length} días.` });
-    }
+    const resultados = filasDatos.map((i, el) => {
+      const columnas = $(el).find('td');
+      const fecha = columnas.eq(0).text().trim();
+      const tipoCambio = columnas.eq(1).text().trim();
+      return { fecha, tipo_cambio: tipoCambio };
+    }).get();
 
-    const fila = filasDatos.eq(dia - 1);
-    const columnas = fila.find('td');
-
-    if (columnas.length < 2) {
-      console.error('Formato inesperado: menos de 2 columnas en la fila');
-      return res.status(500).json({ error: 'Formato de tabla inesperado.' });
-    }
-
-    const tipoCambio = columnas.eq(1).text().trim();
-
-    console.log(`Tipo de cambio extraído para día ${dia}: ${tipoCambio}`);
-
-    return res.json({
-      fecha: `${anio}-${mesStr}-${dia.toString().padStart(2, '0')}`,
-      tipo_cambio: tipoCambio
-    });
+    return res.json({ fecha_inicial, fecha_final, datos: resultados });
 
   } catch (error) {
-    console.error('Error en try catch:', error);
+    console.error('Error al obtener datos:', error);
     return res.status(500).json({ error: 'Error al obtener tipo de cambio.' });
   }
 });
