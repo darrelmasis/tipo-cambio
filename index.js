@@ -6,10 +6,10 @@ const app = express();
 
 app.get('/api/cambio', async (req, res) => {
   try {
-    const { fecha_inicial = '2018-01-01', fecha_final = new Date().toISOString().slice(0,10) } = req.query;
+    const { fecha_inicial = '2018-01-01', fecha_final = '2050-12-31' } = req.query;
 
     const url = `https://www.bcn.gob.ni/IRR/tipo_cambio_mensual/mes.php?Fecha_inicial=${fecha_inicial}&Fecha_final=${fecha_final}`;
-    console.log(`Consultando URL: ${url}`);
+console.log(`Consultando URL: ${url}`);
 
     const { data } = await axios.get(url, {
       headers: {
